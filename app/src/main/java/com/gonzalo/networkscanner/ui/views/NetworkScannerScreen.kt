@@ -79,7 +79,7 @@ fun NetworkScannerScreen(modifier: Modifier = Modifier) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 104.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(devices) { device ->
@@ -213,6 +213,8 @@ fun DeviceCard(device: UnifiedNetworkDevice) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
 
                 // Discovery method badges
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
