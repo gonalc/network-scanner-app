@@ -43,11 +43,26 @@ class NetworkScannerViewModel(
 
     private fun setupNsdListener() {
         nsdScanner.onServiceDiscovered = { serviceInfo ->
-            serviceInfo.host?.let { host ->
-                nsdServices[host.hostAddress] = serviceInfo
+            serviceInfo.host?.hostAddress?.let { ipAddress ->
+                Log.d("NetworkScanner", "NSD discovered: ${serviceInfo.serviceName} at $ipAddress (${serviceInfo.serviceType})")
+                nsdServices[ipAddress] = serviceInfo
                 mergeAndUpdateDevices()
             }
         }
+    }
+
+    /**
+     * Extract a clean device name from mDNS service name.
+     * Service names often contain extra info like "[b8:27:eb:xx:xx:xx]" or device type.
+     */
+    private fun cleanServiceName(serviceName: String): String {
+        // Remove MAC address in brackets like "[b8:27:eb:11:22:33]"
+        var cleaned = serviceName.replace(Regex("""\[([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\]"""), "").trim()
+
+        // Remove common prefixes/suffixes
+        cleaned = cleaned.replace(Regex("""^(\._.*|_.*\.local\.?)"""), "").trim()
+
+        return if (cleaned.isNotEmpty()) cleaned else serviceName
     }
 
     fun startCompleteScan() {
@@ -106,6 +121,7 @@ class NetworkScannerViewModel(
                 ipAddress = ip,
                 hostname = device.hostname,
                 macAddress = device.macAddress,
+                vendor = device.vendor,
                 isReachable = device.isReachable,
                 services = emptyList(),
                 discoveryMethod = setOf(DiscoveryMethod.ARP)
@@ -114,28 +130,30 @@ class NetworkScannerViewModel(
 
         // Merge NSD services
         nsdServices.forEach { (ip, service) ->
+            val cleanedName = cleanServiceName(service.serviceName)
             val existingDevice = mergedDevices[ip]
             if (existingDevice != null) {
                 // Device was found by both methods - merge the data
                 mergedDevices[ip] = existingDevice.copy(
                     services = existingDevice.services + ServiceInfo(
-                        name = service.serviceName,
+                        name = cleanedName,
                         type = service.serviceType,
                         port = service.port
                     ),
                     discoveryMethod = existingDevice.discoveryMethod + DiscoveryMethod.NSD,
-                    hostname = existingDevice.hostname ?: service.serviceName
+                    hostname = existingDevice.hostname ?: cleanedName
                 )
             } else {
                 // Device only found by NSD
                 mergedDevices[ip] = UnifiedNetworkDevice(
                     ipAddress = ip,
-                    hostname = service.serviceName,
+                    hostname = cleanedName,
                     macAddress = null,
+                    vendor = null,
                     isReachable = true,
                     services = listOf(
                         ServiceInfo(
-                            name = service.serviceName,
+                            name = cleanedName,
                             type = service.serviceType,
                             port = service.port
                         )
@@ -188,6 +206,7 @@ data class UnifiedNetworkDevice(
     val ipAddress: String,
     val hostname: String?,
     val macAddress: String?,
+    val vendor: String?,
     val isReachable: Boolean,
     val services: List<ServiceInfo>,
     val discoveryMethod: Set<DiscoveryMethod>

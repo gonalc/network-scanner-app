@@ -203,7 +203,7 @@ fun DeviceCard(device: UnifiedNetworkDevice) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = device.hostname ?: "Unknown Device",
+                        text = device.hostname ?: device.vendor?.let { "$it Device" } ?: "Unknown Device",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )

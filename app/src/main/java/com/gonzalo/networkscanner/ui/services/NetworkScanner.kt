@@ -2,6 +2,7 @@ package com.gonzalo.networkscanner.ui.services
 
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -14,11 +15,13 @@ data class NetworkDevice(
     val ipAddress: String,
     val hostname: String?,
     val macAddress: String?,
+    val vendor: String?,
     val isReachable: Boolean,
 )
 
 class NetworkScanner(private val context: Context) {
     private val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val vendorLookup = MacVendorLookup(context)
 
     suspend fun scanNetwork(): List<NetworkDevice> = withContext(Dispatchers.IO) {
         val devices = mutableListOf<NetworkDevice>()
@@ -31,11 +34,18 @@ class NetworkScanner(private val context: Context) {
                 val host = "$subnet.$i"
                 if (isHostReachable(host)) {
                     val hostname = tryGetHostname(host)
-                    val macAddress = getMacFromArp(host)
+
+                    // Note: MAC address lookup via /proc/net/arp is blocked on Android 10+
+                    // Devices will be identified via mDNS/NSD service discovery instead
+
+                    Log.d("NetworkScanner", "Found device: $host")
+                    Log.d("NetworkScanner", "  Hostname: $hostname")
+
                     NetworkDevice(
                         ipAddress = host,
                         hostname = hostname,
-                        macAddress = macAddress,
+                        macAddress = null,
+                        vendor = null,
                         isReachable = true
                     )
                 } else null
@@ -73,12 +83,17 @@ class NetworkScanner(private val context: Context) {
             while (br.readLine().also { line = it } != null) {
                 val splitted = line!!.split(" +".toRegex())
                 if (splitted.size >= 4 && splitted[0] == ipAddress) {
-                    return splitted[3]
+                    val mac = splitted[3]
+                    Log.d("NetworkScanner", "Found MAC in ARP table for $ipAddress: $mac")
+                    br.close()
+                    return mac
                 }
             }
             br.close()
+            Log.d("NetworkScanner", "No MAC found in ARP table for $ipAddress")
             null
         } catch (e: Exception) {
+            Log.e("NetworkScanner", "Error reading ARP table", e)
             null
         }
     }
