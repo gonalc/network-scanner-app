@@ -1,7 +1,13 @@
 package com.gonzalo.networkscanner.ui.views
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -183,12 +189,23 @@ fun StatusCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DeviceCard(device: UnifiedNetworkDevice) {
+    val context = LocalContext.current
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = { /* Handle device click if needed */ }
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = { },
+                onLongClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("IP Address", device.ipAddress)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, "IP address copied: ${device.ipAddress}", Toast.LENGTH_SHORT).show()
+                }
+            )
     ) {
         Column(
             modifier = Modifier
